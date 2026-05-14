@@ -1,3 +1,4 @@
 com/example/springrestdemo/dto/PersonResponse.class
 com/example/springrestdemo/controller/PersonController.class
+com/example/springrestdemo/exception/GeminiQuotaExceededException.class
 com/example/springrestdemo/SpringRestDemoApplication.class

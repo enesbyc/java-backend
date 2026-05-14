@@ -1,8 +1,14 @@
 /Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/SpringRestDemoApplication.java
 /Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/config/WebCorsConfig.java
+/Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/controller/MeetingAnalysisController.java
 /Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/controller/PersonController.java
 /Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/controller/TaskController.java
+/Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/dto/MeetingAnalysisResponse.java
+/Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/dto/MeetingNotesRequest.java
 /Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/dto/PersonResponse.java
 /Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/dto/TaskPatchRequest.java
 /Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/dto/TaskResponse.java
+/Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/exception/GeminiQuotaExceededException.java
+/Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/service/GeminiService.java
+/Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/service/MeetingAnalysisService.java
 /Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/service/TaskStore.java
