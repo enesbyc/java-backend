@@ -1,0 +1,8 @@
+/Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/SpringRestDemoApplication.java
+/Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/config/WebCorsConfig.java
+/Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/controller/PersonController.java
+/Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/controller/TaskController.java
+/Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/dto/PersonResponse.java
+/Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/dto/TaskPatchRequest.java
+/Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/dto/TaskResponse.java
+/Users/tceboyaci/Projects/ai-hackathon/java-project/src/main/java/com/example/springrestdemo/service/TaskStore.java

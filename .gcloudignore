@@ -1,0 +1,6 @@
+# gcloud run deploy --source . yüklemesini küçültür
+.git
+.gitignore
+.idea
+target/
+*.iml
