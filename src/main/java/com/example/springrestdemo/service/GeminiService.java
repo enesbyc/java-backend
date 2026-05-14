@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
@@ -23,6 +24,7 @@ import org.springframework.web.client.RestTemplate;
 
 /**
  * Google Gemini REST API — generateContent. Model sabit: {@value #MODEL_ID} (yeni hesaplarda 2.0-flash kapalı).
+ * 503 / geçici 429 için üstel geri çekilme ile yeniden dener.
  */
 @Service
 public class GeminiService {
@@ -31,6 +33,10 @@ public class GeminiService {
 
     /** Google: eski {@code gemini-2.0-flash} yeni hesaplarda kapalı; güncel Flash. */
     private static final String MODEL_ID = "gemini-2.5-flash";
+
+    private static final int MAX_ATTEMPTS = 6;
+    private static final long BASE_BACKOFF_MS = 1500L;
+    private static final long MAX_BACKOFF_MS = 22_000L;
 
     private static final BigDecimal INPUT_COST_PER_MILLION = new BigDecimal("0.10");
     private static final BigDecimal OUTPUT_COST_PER_MILLION = new BigDecimal("0.40");
@@ -80,54 +86,87 @@ public class GeminiService {
             throw new IllegalStateException(
                     "Gemini API anahtarı tanımlı değil. GEMINI_API_KEY ortam değişkeni veya gemini.api.key ayarlayın.");
         }
-        try {
-            String url =
-                    String.format(
-                            "%s/models/%s:generateContent?key=%s",
-                            baseUrl.trim(), MODEL_ID, apiKey.trim());
-
-            Map<String, Object> requestBody =
-                    Map.of(
-                            "contents",
-                            List.of(Map.of("parts", List.of(Map.of("text", prompt)))),
-                            "generationConfig",
-                            Map.of(
-                                    "temperature", temperature,
-                                    "maxOutputTokens", maxOutputTokens,
-                                    "topP", 0.95,
-                                    "topK", 40),
-                            "safetySettings",
-                            List.of(
-                                    Map.of("category", "HARM_CATEGORY_HARASSMENT", "threshold", "BLOCK_NONE"),
-                                    Map.of("category", "HARM_CATEGORY_HATE_SPEECH", "threshold", "BLOCK_NONE"),
-                                    Map.of("category", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold", "BLOCK_NONE"),
-                                    Map.of("category", "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold", "BLOCK_NONE")));
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-
-            log.debug("Gemini generateContent model={}", MODEL_ID);
-            ResponseEntity<String> response =
-                    restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
-            return extractTextFromResponse(response.getBody());
-        } catch (RestClientResponseException e) {
-            if (e.getStatusCode().value() == 429) {
-                log.warn("Gemini 429 quota: model={}", MODEL_ID);
-                throw new GeminiQuotaExceededException(
-                        "Gemini kotası doldu (429). Bir süre bekleyip tekrar deneyin; Google AI Studio / Cloud "
-                                + "faturalandırma ve kotaya bakın. https://ai.google.dev/gemini-api/docs/rate-limits",
-                        e);
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                return generateContentOnce(prompt);
+            } catch (RestClientResponseException e) {
+                int code = e.getStatusCode().value();
+                boolean overload = code == 503 || code == 429;
+                if (overload && attempt < MAX_ATTEMPTS) {
+                    long backoff =
+                            Math.min(BASE_BACKOFF_MS * (1L << (attempt - 1)), MAX_BACKOFF_MS)
+                                    + ThreadLocalRandom.current().nextLong(0, 1000);
+                    log.warn(
+                            "Gemini {} (model={}) — yoğunluk/kısıt, {} ms sonra yeniden denenecek ({}/{})",
+                            code,
+                            MODEL_ID,
+                            backoff,
+                            attempt,
+                            MAX_ATTEMPTS);
+                    sleepQuietly(backoff);
+                    continue;
+                }
+                if (code == 429) {
+                    log.warn("Gemini 429 quota/rate: model={} (denemeler tükendi)", MODEL_ID);
+                    throw new GeminiQuotaExceededException(
+                            "Gemini 429: kotanız veya istek hızı sınırı aşıldı. Bir süre bekleyip tekrar deneyin. "
+                                    + "https://ai.google.dev/gemini-api/docs/rate-limits",
+                            e);
+                }
+                String body = e.getResponseBodyAsString();
+                String snippet = body != null && body.length() > 400 ? body.substring(0, 400) + "…" : body;
+                log.error("Gemini HTTP {} model={}: {}", e.getStatusCode().value(), MODEL_ID, snippet);
+                throw new RuntimeException(
+                        "Gemini API hatası: " + e.getStatusCode().value() + " — " + snippet, e);
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                log.error("Gemini API hatası: {}", e.getMessage());
+                throw new RuntimeException("Gemini API hatası: " + e.getMessage(), e);
             }
-            String body = e.getResponseBodyAsString();
-            String snippet = body != null && body.length() > 400 ? body.substring(0, 400) + "…" : body;
-            log.error("Gemini HTTP {} model={}: {}", e.getStatusCode().value(), MODEL_ID, snippet);
-            throw new RuntimeException(
-                    "Gemini API hatası: " + e.getStatusCode().value() + " — " + snippet, e);
-        } catch (Exception e) {
-            log.error("Gemini API hatası: {}", e.getMessage());
-            throw new RuntimeException("Gemini API hatası: " + e.getMessage(), e);
         }
+        throw new IllegalStateException("Gemini: beklenmeyen durum");
+    }
+
+    private static void sleepQuietly(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Gemini çağrısı kesildi", ie);
+        }
+    }
+
+    private String generateContentOnce(String prompt) {
+        String url =
+                String.format(
+                        "%s/models/%s:generateContent?key=%s",
+                        baseUrl.trim(), MODEL_ID, apiKey.trim());
+
+        Map<String, Object> requestBody =
+                Map.of(
+                        "contents",
+                        List.of(Map.of("parts", List.of(Map.of("text", prompt)))),
+                        "generationConfig",
+                        Map.of(
+                                "temperature", temperature,
+                                "maxOutputTokens", maxOutputTokens,
+                                "topP", 0.95,
+                                "topK", 40),
+                        "safetySettings",
+                        List.of(
+                                Map.of("category", "HARM_CATEGORY_HARASSMENT", "threshold", "BLOCK_NONE"),
+                                Map.of("category", "HARM_CATEGORY_HATE_SPEECH", "threshold", "BLOCK_NONE"),
+                                Map.of("category", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold", "BLOCK_NONE"),
+                                Map.of("category", "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold", "BLOCK_NONE")));
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+        log.debug("Gemini generateContent model={}", MODEL_ID);
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+        return extractTextFromResponse(response.getBody());
     }
 
     private String extractTextFromResponse(String responseBody) {

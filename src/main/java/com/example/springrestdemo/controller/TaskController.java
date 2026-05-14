@@ -2,7 +2,7 @@ package com.example.springrestdemo.controller;
 
 import com.example.springrestdemo.dto.TaskPatchRequest;
 import com.example.springrestdemo.dto.TaskResponse;
-import com.example.springrestdemo.service.TaskStore;
+import com.example.springrestdemo.service.TaskService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
@@ -19,21 +19,21 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Task", description = "Görev listesi ve güncelleme")
 public class TaskController {
 
-    private final TaskStore taskStore;
+    private final TaskService taskService;
 
-    public TaskController(TaskStore taskStore) {
-        this.taskStore = taskStore;
+    public TaskController(TaskService taskService) {
+        this.taskService = taskService;
     }
 
     @GetMapping("/tasks")
-    @Operation(summary = "Görev listesi")
+    @Operation(summary = "Görev listesi", description = "H2 veritabanından okur.")
     public List<TaskResponse> getTasks() {
-        return taskStore.findAll();
+        return taskService.findAll();
     }
 
     @PatchMapping(path = "/tasks/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Görev kısmi güncelleme", description = "status ve/veya qualityScore alanları gönderilebilir.")
     public TaskResponse patchTask(@PathVariable String id, @RequestBody TaskPatchRequest body) {
-        return taskStore.patch(id, body);
+        return taskService.patch(id, body);
     }
 }

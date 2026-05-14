@@ -25,7 +25,7 @@ class TaskControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(8))
                 .andExpect(jsonPath("$[0].id").value("t1"))
-                .andExpect(jsonPath("$[0].assigneeId").value("p1"));
+                .andExpect(jsonPath("$[0].assigneeId").value("u1"));
     }
 
     @Test
